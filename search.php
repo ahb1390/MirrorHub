@@ -70,8 +70,9 @@ if ($terms) {
     $mirrorParams = [];
     foreach ($terms as $term) {
         $like = '%' . $term . '%';
-        $match = '(m.name_fa LIKE ? OR m.name_en LIKE ? OR m.description LIKE ? OR m.url LIKE ? OR m.protocol LIKE ?
-            OR EXISTS (
+        $match = '(m.name_fa LIKE ? OR m.name_en LIKE ? OR m.description LIKE ? OR m.url LIKE ? OR m.protocol LIKE ?'
+            . ($hasEndpointTable ? ' OR EXISTS (SELECT 1 FROM mirror_endpoints sme WHERE sme.mirror_id = m.id AND sme.is_active = 1 AND sme.url LIKE ?)' : '')
+            . ' OR EXISTS (
                 SELECT 1 FROM mirror_categories smc
                 INNER JOIN categories sc ON sc.id = smc.category_id
                 LEFT JOIN categories sp ON sp.id = sc.parent_id
