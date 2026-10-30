@@ -1,6 +1,7 @@
 <?php
 require_once '../includes/db.php';
 require_once '../includes/functions.php';
+require_once '../includes/mirror-endpoints.php';
 require_once '../includes/layout.php';
 requireAdmin();
 
@@ -23,7 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name_fa = sanitize($_POST['name_fa'] ?? '');
     $name_en = sanitize($_POST['name_en'] ?? '');
     $slug = sanitize($_POST['slug'] ?? '');
-    $url = filter_var(trim($_POST['url'] ?? ''), FILTER_SANITIZE_URL);
+    $url = trim((string)($_POST['url'] ?? ''));
+    $extraEndpointUrls = is_array($_POST['endpoint_urls'] ?? null) ? $_POST['endpoint_urls'] : [];
+    $extraEndpointLabels = is_array($_POST['endpoint_labels'] ?? null) ? $_POST['endpoint_labels'] : [];
+    $extraEndpointUrls = count($extraEndpointUrls) === 1 && is_string($extraEndpointUrls[0]) ? preg_split('/\\r?\\n/', $extraEndpointUrls[0]) : $extraEndpointUrls;
+    $extraEndpointLabels = count($extraEndpointLabels) === 1 && is_string($extraEndpointLabels[0]) ? preg_split('/\\r?\\n/', $extraEndpointLabels[0]) : $extraEndpointLabels;
     $protocols = normalizeProtocols($_POST['protocols'] ?? [], $_POST['custom_protocols'] ?? []);
     $protocol = $protocols[0]['protocol'] ?? 'https';
     $healthProfile = trim((string)($_POST['health_profile'] ?? 'http_only'));
@@ -41,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect($backUrl);
     }
 
-    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+    if (mhValidateEndpointUrl($url) === null) {
         flash('error', 'آدرس اینترنتی وارد شده معتبر نیست.');
         redirect($backUrl);
     }
@@ -66,12 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
+        $pdo->beginTransaction();
         if ($action === 'edit' && $id) {
             $pdo->prepare("UPDATE mirrors SET name_fa=?, name_en=?, slug=?, url=?, protocol=?, description=?, status=? WHERE id=?")
                 ->execute([$name_fa, $name_en, $slug, $url, $protocol, $description, $status, $id]);
             setMirrorCategories($pdo, $id, $category_ids);
             setMirrorProtocols($pdo, $id, $protocols);
             monitorSaveRepositoryHealthConfig($pdo, $id, $healthProfile, $normalizedHealthPath['path'], $healthMaxAgeHours);
+            mhSaveMirrorEndpoints($pdo, $id, $url, $extraEndpointUrls, $extraEndpointLabels, $status === 'active');
             flash('success', 'میرور با موفقیت ویرایش شد.');
         } else {
             $pdo->prepare("INSERT INTO mirrors (name_fa, name_en, slug, url, protocol, description, status) VALUES (?, ?, ?, ?, ?, ?, ?)")
@@ -80,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setMirrorCategories($pdo, $newId, $category_ids);
             setMirrorProtocols($pdo, $newId, $protocols);
             monitorSaveRepositoryHealthConfig($pdo, $newId, $healthProfile, $normalizedHealthPath['path'], $healthMaxAgeHours);
+            mhSaveMirrorEndpoints($pdo, $newId, $url, $extraEndpointUrls, $extraEndpointLabels, $status === 'active');
 
             if ($linkRequestId > 0) {
                 $pdo->prepare("UPDATE requests SET mirror_id = ?, status='reviewed', reviewed_by=?, reviewed_at=NOW() WHERE id = ?")
@@ -89,9 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('success', 'میرور با موفقیت اضافه شد.');
             }
         }
+        $pdo->commit();
         redirect(SITE_URL . '/admin/mirrors.php');
-    } catch (PDOException $e) {
-        if ($e->getCode() == 23000) {
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($e instanceof PDOException && $e->getCode() == 23000) {
             flash('error', 'این نامک (slug) قبلاً استفاده شده است.');
         } else {
             flash('error', 'خطا در ذخیره‌سازی: ' . $e->getMessage());
@@ -126,6 +136,8 @@ $currentHealthConfig = $action === 'edit' && $id > 0
     ? monitorRepositoryHealthConfig($pdo, $id)
     : ['profile' => 'http_only', 'metadata_path' => '', 'max_age_hours' => 168];
 $currentHealthProfileInfo = $healthProfiles[$currentHealthConfig['profile']] ?? $healthProfiles['http_only'];
+$currentMirrorEndpoints = ($action === 'edit' && $id > 0) ? mhGetMirrorEndpoints($pdo, $id) : [];
+$extraMirrorEndpoints = array_values(array_filter($currentMirrorEndpoints, fn($endpoint) => empty($endpoint['is_primary'])));
 
 $prefill = [];
 $prefillRequestId = 0;
@@ -265,6 +277,18 @@ $selectedProtocolValues = array_map(fn($p) => $p['protocol'], $selectedProtocols
                                         dir="ltr" required maxlength="1000" placeholder="https://example.com/mirror" autocomplete="off">
                                 </div>
                                 <small class="form-hint">آدرس کامل را با پروتکل وارد کنید؛ مانند <span dir="ltr">https://</span> یا <span dir="ltr">rsync://</span>.</small>
+                            </div>
+
+                            <div class="form-group mirror-endpoints-editor">
+                                <label>آدرس‌های جایگزین (اختیاری)</label>
+                                <?php if (!mhMirrorEndpointsAvailable($pdo)): ?>
+                                    <div class="form-hint">برای فعال شدن چند آدرس، مهاجرت پایگاه داده <code>003_mirror_endpoints.sql</code> باید اجرا شود. تا آن زمان آدرس اصلی مانند قبل ذخیره می‌شود.</div>
+                                <?php else: ?>
+                                    <p class="form-hint">هر آدرس را در یک خط وارد کنید. آدرس اصلی همان فیلد بالاست و این آدرس‌ها به‌ترتیب به‌عنوان جایگزین ذخیره می‌شوند.</p>
+                                    <textarea name="endpoint_urls[]" rows="4" dir="ltr" maxlength="5000" placeholder="https://mirror2.example.org/repository&#10;http://mirror3.example.org/repository"><?= htmlspecialchars(implode("\n", array_column($extraMirrorEndpoints, 'url')), ENT_QUOTES, 'UTF-8') ?></textarea>
+                                    <label for="endpoint_labels" style="margin-top:.75rem;">برچسب آدرس‌های جایگزین (اختیاری؛ هر خط مطابق همان آدرس)</label>
+                                    <textarea id="endpoint_labels" name="endpoint_labels[]" rows="3" maxlength="1000" placeholder="میرور پشتیبان دوم&#10;سرور جایگزین سوم"><?= htmlspecialchars(implode("\n", array_column($extraMirrorEndpoints, 'label_fa')), ENT_QUOTES, 'UTF-8') ?></textarea>
+                                <?php endif; ?>
                             </div>
 
                             <div class="form-group">
