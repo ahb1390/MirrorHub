@@ -160,6 +160,7 @@ if ($terms) {
     $mirrorIds = array_column($mirrorResults, 'id');
     $categoryMap = getMirrorCategoryTagsMap($pdo, $mirrorIds);
     $protocolMap = getMirrorProtocolsMap($pdo, $mirrorIds);
+    $endpointMap = mhGetMirrorEndpointsMap($pdo, $mirrorIds);
     foreach ($mirrorResults as &$mirror) {
         $id = (int)$mirror['id'];
         $mirror['categories'] = $categoryMap[$id] ?? [];
