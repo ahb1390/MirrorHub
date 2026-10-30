@@ -79,7 +79,9 @@ if ($terms) {
                 WHERE smc.mirror_id = m.id
                   AND (sc.name LIKE ? OR sc.slug LIKE ? OR sc.description LIKE ? OR sp.name LIKE ?)
             )';
-        array_push($mirrorParams, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+        array_push($mirrorParams, $like, $like, $like, $like, $like);
+        if ($hasEndpointTable) $mirrorParams[] = $like;
+        array_push($mirrorParams, $like, $like, $like, $like);
 
         if ($hasProtocolTable) {
             $match .= " OR EXISTS (
