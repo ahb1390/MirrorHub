@@ -93,10 +93,10 @@ renderHeader($names['fa']);
         <div class="mirror-titles"><h1 class="section-title"><?= htmlspecialchars($names['fa'], ENT_QUOTES, 'UTF-8') ?></h1>
             <?php if ($names['en'] && $names['en'] !== $names['fa']): ?><p class="mirror-name-en" dir="ltr"><?= htmlspecialchars($names['en'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         </div>
-        <div class="mirror-actions"><a class="btn btn-primary" href="<?= htmlspecialchars((string)$mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer">بازکردن میرور</a><?= pingButton((string)$mirror['url']) ?></div>
+        <div class="mirror-actions"><a class="btn btn-primary" href="<?= htmlspecialchars((string)$primaryEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer">بازکردن میرور</a><?= pingButton((string)$primaryEndpoint['url']) ?></div>
     </div>
     <?php if (!empty($mirror['description'])): ?><p class="category-desc"><?= nl2br(htmlspecialchars((string)$mirror['description'], ENT_QUOTES, 'UTF-8')) ?></p><?php endif; ?>
-    <a class="mirror-detail-url" href="<?= htmlspecialchars((string)$mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars((string)$mirror['url'], ENT_QUOTES, 'UTF-8') ?></a>
+    <a class="mirror-detail-url" href="<?= htmlspecialchars((string)$primaryEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars((string)$primaryEndpoint['url'], ENT_QUOTES, 'UTF-8') ?></a>
 
     <?php if (count($publicEndpoints) > 1): ?>
         <div class="mirror-endpoint-list" aria-label="آدرس‌های دیگر میرور">
