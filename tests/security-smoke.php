@@ -106,7 +106,19 @@ $escaped = cmsInline('<script>alert(1)</script>');
 $assert(str_contains($escaped, '&lt;script&gt;'), 'CMS inline renderer must escape raw HTML.');
 
 $endpointMigration = file_get_contents($root . '/migrations/003_mirror_endpoints.sql') ?: '';
+$endpointHelpers = file_get_contents($root . '/includes/mirror-endpoints.php') ?: '';
+$mirrorAdmin = file_get_contents($root . '/admin/mirrors.php') ?: '';
 $migrationGuide = file_get_contents($root . '/docs/migrations.fa.md') ?: '';
+$assert(str_contains($endpointHelpers, 'function mhValidateEndpointUrl'), 'Endpoint URL validator must be available.');
+$assert(str_contains($endpointHelpers, "['http', 'https', 'ftp', 'rsync']"), 'Endpoint validator must allow supported mirror schemes.');
+$assert(str_contains($endpointHelpers, "isset(\\$parts['user'])") && str_contains($endpointHelpers, "isset(\\$parts['pass'])"), 'Endpoint validator must reject URL credentials.');
+$assert(str_contains($endpointHelpers, 'function mhSaveMirrorEndpoints'), 'Endpoint persistence helper must be available.');
+$assert(str_contains($endpointHelpers, 'mhMirrorEndpointsAvailable($pdo)'), 'Endpoint persistence must tolerate databases before migration.');
+$assert(str_contains($endpointHelpers, 'آدرس تکراری'), 'Endpoint persistence must reject duplicate URLs.');
+$assert(str_contains($mirrorAdmin, 'mhSaveMirrorEndpoints'), 'Admin mirror create/edit must persist endpoint records.');
+$assert(str_contains($mirrorAdmin, 'endpoint_urls[]') && str_contains($mirrorAdmin, 'endpoint_labels[]'), 'Admin mirror form must expose alternate endpoint inputs.');
+$assert(str_contains($mirrorAdmin, '$pdo->beginTransaction()') && str_contains($mirrorAdmin, '$pdo->commit()'), 'Mirror and endpoint changes must be saved transactionally.');
+
 $assert(str_contains($endpointMigration, 'CREATE TABLE IF NOT EXISTS mirror_endpoints'), 'Mirror endpoint migration must create its table safely.');
 $assert(str_contains($endpointMigration, 'FOREIGN KEY (mirror_id) REFERENCES mirrors(id) ON DELETE CASCADE'), 'Mirror endpoints must be linked to their parent mirror.');
 $assert(str_contains($endpointMigration, 'INSERT INTO mirror_endpoints') && str_contains($endpointMigration, 'FROM mirrors AS m'), 'Existing mirror URLs must be copied into endpoints.');
