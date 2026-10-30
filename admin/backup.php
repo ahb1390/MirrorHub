@@ -76,7 +76,7 @@ function mappedId(array $map, $oldId, string $label): ?int {
 if (($_GET['action'] ?? '') === 'export') {
     $payload = [
         'format' => 'mirrorhub-backup',
-        'version' => MIRRORHUB_BACKUP_VERSION,
+        'version' => backupTableExists($pdo, 'mirror_endpoints') ? MIRRORHUB_BACKUP_VERSION : 3,
         'exported_at' => date('c'),
         'site' => SITE_NAME,
         'tables' => [],
@@ -195,7 +195,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['backup_action'] ?? '') ===
                 $backup['tables'][$table]['rows'] = [];
             }
             if (!in_array($table, $availableTables, true)) {
-                throw new RuntimeException("جدول «{$table}» در پایگاه داده فعلی موجود نیست.");
+                if ($table === 'mirror_endpoints' && in_array($table, $legacyTables, true)) {
+                    $legacyMissingTables[] = $table;
+                    $columnMap[$table] = [];
+                    continue;
+                }
+                throw new RuntimeException("جدول «{$table}» در پایگاه داده فعلی موجود نیست. ابتدا مهاجرت‌های دیتابیس را اجرا کنید.");
             }
             $columnMap[$table] = tableColumns($pdo, $table);
         }
@@ -277,7 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['backup_action'] ?? '') ===
 
             // Older archives predate mirror_endpoints. During merge, recreate the
             // legacy primary URL for imported mirrors so they remain usable.
-            if (in_array('mirror_endpoints', $legacyMissingTables, true)) {
+            if (in_array('mirror_endpoints', $legacyMissingTables, true) && in_array('mirror_endpoints', $availableTables, true)) {
                 foreach (fetchBackupRows($backup, 'mirrors') as $mirrorRow) {
                     $mirrorId = mappedId($maps['mirrors'], $mirrorRow['id'] ?? null, 'میرور قدیمی');
                     $url = trim((string)($mirrorRow['url'] ?? ''));
