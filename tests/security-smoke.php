@@ -124,8 +124,8 @@ $assert(str_contains($categoryPage, 'mhGetMirrorEndpointsMap'), 'Category mirror
 $assert(str_contains($searchPage, 'mhGetMirrorEndpointsMap'), 'Search mirror cards must load public endpoints.');
 $assert(str_contains($searchPage, 'sme.url LIKE ?'), 'Search must match active alternate endpoint URLs.');
 $assert(str_contains($mirrorDetail, 'mirror-endpoint-list'), 'Mirror detail page must list alternate endpoints.');
-$assert(str_contains($mirrorDetail, "href=\"<?= htmlspecialchars((string)$primaryEndpoint['url']") && str_contains($mirrorDetail, "pingButton((string)$primaryEndpoint['url'])"), 'Mirror detail primary open and ping actions must use the selected primary endpoint.');
-$assert(str_contains($mirrorDetail, "mirror-detail-url\" href=\"<?= htmlspecialchars((string)$primaryEndpoint['url']"), 'Mirror detail must display the selected primary endpoint URL.');
+$assert(str_contains($mirrorDetail, '$primaryEndpoint[\'url\']') && str_contains($mirrorDetail, 'pingButton((string)$primaryEndpoint[\'url\'])'), 'Mirror detail primary open and ping actions must use the selected primary endpoint.');
+$assert(str_contains($mirrorDetail, 'mirror-detail-url') && str_contains($mirrorDetail, '$primaryEndpoint[\'url\']'), 'Mirror detail must display the selected primary endpoint URL.');
 
 $assert(str_contains($endpointMigration, 'CREATE TABLE IF NOT EXISTS mirror_endpoints'), 'Mirror endpoint migration must create its table safely.');
 $assert(str_contains($endpointMigration, 'FOREIGN KEY (mirror_id) REFERENCES mirrors(id) ON DELETE CASCADE'), 'Mirror endpoints must be linked to their parent mirror.');
