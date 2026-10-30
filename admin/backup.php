@@ -4,9 +4,9 @@ require_once '../includes/functions.php';
 require_once '../includes/layout.php';
 requireAdmin();
 
-const MIRRORHUB_BACKUP_VERSION = 3;
+const MIRRORHUB_BACKUP_VERSION = 4;
 $backupTables = [
-    'users', 'categories', 'mirrors', 'mirror_categories', 'requests', 'request_links',
+    'users', 'categories', 'mirrors', 'mirror_endpoints', 'mirror_categories', 'requests', 'request_links',
     'visits', 'mirror_protocols', 'request_protocols', 'cms_articles',
     'mirror_checks', 'mirror_status', 'mirror_daily_stats', 'mirror_incidents', 'monitor_settings',
     'mirror_repository_health',
@@ -148,15 +148,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['backup_action'] ?? '') ===
     try {
         $backup = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         $backupVersion = (int)($backup['version'] ?? 0);
-        if (($backup['format'] ?? '') !== 'mirrorhub-backup' || !in_array($backupVersion, [1, 2, MIRRORHUB_BACKUP_VERSION], true)) {
+        if (($backup['format'] ?? '') !== 'mirrorhub-backup' || !in_array($backupVersion, [1, 2, 3, MIRRORHUB_BACKUP_VERSION], true)) {
             throw new RuntimeException('فرمت یا نسخه فایل پشتیبان با MirrorHub سازگار نیست.');
         }
         if (!isset($backup['tables']) || !is_array($backup['tables'])) throw new RuntimeException('بخش tables در فایل پشتیبان وجود ندارد.');
 
         $legacyMissingTables = [];
         $legacyTablesByVersion = [
-            1 => ['request_links', 'mirror_checks', 'mirror_status', 'mirror_daily_stats', 'mirror_incidents', 'monitor_settings', 'mirror_repository_health'],
-            2 => ['mirror_repository_health'],
+            1 => ['request_links', 'mirror_checks', 'mirror_status', 'mirror_daily_stats', 'mirror_incidents', 'monitor_settings', 'mirror_repository_health', 'mirror_endpoints'],
+            2 => ['mirror_repository_health', 'mirror_endpoints'],
+            3 => ['mirror_endpoints'],
         ];
         $legacyTables = $legacyTablesByVersion[$backupVersion] ?? [];
 
@@ -209,10 +210,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['backup_action'] ?? '') ===
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
 
         if ($mode === 'replace') {
-            foreach (['mirror_checks','mirror_status','mirror_daily_stats','mirror_incidents','monitor_settings','mirror_repository_health','cms_articles','request_links','mirror_protocols','request_protocols','mirror_categories','visits','requests','mirrors','categories','users'] as $table) {
+            foreach (['mirror_endpoints','mirror_checks','mirror_status','mirror_daily_stats','mirror_incidents','monitor_settings','mirror_repository_health','cms_articles','request_links','mirror_protocols','request_protocols','mirror_categories','visits','requests','mirrors','categories','users'] as $table) {
                 $pdo->exec("DELETE FROM `$table`");
             }
-            foreach (['users','categories','mirrors','requests','visits','mirror_categories','request_links','mirror_protocols','request_protocols','cms_articles','mirror_checks','mirror_status','mirror_daily_stats','mirror_incidents','monitor_settings','mirror_repository_health'] as $table) {
+            foreach (['users','categories','mirrors','mirror_endpoints','requests','visits','mirror_categories','request_links','mirror_protocols','request_protocols','cms_articles','mirror_checks','mirror_status','mirror_daily_stats','mirror_incidents','monitor_settings','mirror_repository_health'] as $table) {
                 foreach (fetchBackupRows($backup, $table) as $row) insertRow($pdo, $table, $row, $columnMap[$table], true);
             }
             $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
@@ -258,6 +259,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['backup_action'] ?? '') ===
                 $newId = $existing ?? insertRow($pdo, 'mirrors', $row, $columnMap['mirrors'], false);
                 if (!$oldId || !$newId) throw new RuntimeException('رکورد میرور نامعتبر است.');
                 $maps['mirrors'][$oldId] = $newId;
+            }
+
+            // Restore independent mirror endpoints only after their parent mirrors have been mapped.
+            foreach (fetchBackupRows($backup, 'mirror_endpoints') as $row) {
+                $mirrorId = mappedId($maps['mirrors'], $row['mirror_id'] ?? null, 'Endpoint میرور');
+                if (!$mirrorId) continue;
+                $url = (string)($row['url'] ?? '');
+                if ($url === '') continue;
+                $exists = $pdo->prepare('SELECT id FROM mirror_endpoints WHERE mirror_id = ? AND url = ? LIMIT 1');
+                $exists->execute([$mirrorId, $url]);
+                if (!$exists->fetchColumn()) {
+                    $row['mirror_id'] = $mirrorId;
+                    insertRow($pdo, 'mirror_endpoints', $row, $columnMap['mirror_endpoints'], false);
+                }
+            }
+
+            // Older archives predate mirror_endpoints. During merge, recreate the
+            // legacy primary URL for imported mirrors so they remain usable.
+            if (in_array('mirror_endpoints', $legacyMissingTables, true)) {
+                foreach (fetchBackupRows($backup, 'mirrors') as $mirrorRow) {
+                    $mirrorId = mappedId($maps['mirrors'], $mirrorRow['id'] ?? null, 'میرور قدیمی');
+                    $url = trim((string)($mirrorRow['url'] ?? ''));
+                    if (!$mirrorId || $url === '') continue;
+                    $exists = $pdo->prepare('SELECT id FROM mirror_endpoints WHERE mirror_id = ? AND url = ? LIMIT 1');
+                    $exists->execute([$mirrorId, $url]);
+                    if (!$exists->fetchColumn()) {
+                        $stmt = $pdo->prepare("INSERT INTO mirror_endpoints (mirror_id, label_fa, label_en, kind, url, is_primary, is_active, sort_order) VALUES (?, 'آدرس اصلی', 'Primary', 'repository', ?, 1, 1, 0)");
+                        $stmt->execute([$mirrorId, $url]);
+                    }
+                }
             }
 
             foreach (fetchBackupRows($backup, 'requests') as $row) {
