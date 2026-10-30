@@ -40,3 +40,51 @@ function mhSaveMirrorEndpoints(PDO $pdo, int $mirrorId, string $primaryUrl, arra
     foreach ($normalized as $order => $endpoint) $insert->execute([$mirrorId, $endpoint['label_fa'], $endpoint['url'], $endpoint['is_primary'], $active ? 1 : 0, $order]);
     return true;
 }
+
+/**
+ * Fetch active endpoints for a collection of mirrors in one query.
+ * Legacy mirrors remain visible when the migration is not installed or
+ * when a mirror has no endpoint rows yet.
+ */
+function mhGetMirrorEndpointsMap(PDO $pdo, array $mirrorIds): array {
+    $ids = array_values(array_unique(array_filter(array_map('intval', $mirrorIds), static fn($id) => $id > 0)));
+    if (!$ids) return [];
+    $map = [];
+    foreach ($ids as $id) $map[$id] = [];
+    if (mhMirrorEndpointsAvailable($pdo)) {
+        $in = implode(',', $ids);
+        try {
+            $stmt = $pdo->query("SELECT id, mirror_id, label_fa, label_en, kind, url, is_primary, is_active, sort_order
+                FROM mirror_endpoints
+                WHERE mirror_id IN ($in) AND is_active = 1
+                ORDER BY mirror_id ASC, is_primary DESC, sort_order ASC, id ASC");
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $map[(int)$row['mirror_id']][] = $row;
+            }
+        } catch (Throwable $e) {
+            // Fall back to the legacy URL below if the optional table is unavailable.
+        }
+    }
+    return $map;
+}
+
+/** Return active public endpoints, falling back to mirrors.url for legacy rows. */
+function mhPublicMirrorEndpoints(PDO $pdo, array $mirror): array {
+    $id = (int)($mirror['id'] ?? 0);
+    $map = mhGetMirrorEndpointsMap($pdo, [$id]);
+    $rows = $map[$id] ?? [];
+    if ($rows) return $rows;
+    $url = trim((string)($mirror['url'] ?? ''));
+    if ($url === '') return [];
+    return [[
+        'id' => null,
+        'mirror_id' => $id,
+        'label_fa' => 'آدرس اصلی',
+        'label_en' => 'Primary',
+        'kind' => 'repository',
+        'url' => $url,
+        'is_primary' => 1,
+        'is_active' => 1,
+        'sort_order' => 0,
+    ]];
+}
