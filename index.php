@@ -25,6 +25,7 @@ $providerCategories = $pdo->query(
 $stmt = $pdo->query("SELECT * FROM mirrors WHERE status = 'active' ORDER BY created_at DESC LIMIT 12");
 $recentMirrors = $stmt->fetchAll();
 $recentIds = array_column($recentMirrors, 'id');
+$recentEndpointMap = mhGetMirrorEndpointsMap($pdo, $recentIds);
 $recentCategoryMap = getMirrorCategoryTagsMap($pdo, $recentIds);
 $recentProtocolMap = getMirrorProtocolsMap($pdo, $recentIds);
 foreach ($recentMirrors as &$mirror) {
