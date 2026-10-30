@@ -165,6 +165,8 @@ if ($terms) {
         $id = (int)$mirror['id'];
         $mirror['categories'] = $categoryMap[$id] ?? [];
         $mirror['protocols'] = $protocolMap[$id] ?? [];
+        $mirror['public_endpoints'] = $endpointMap[$id] ?? [];
+        if (!$mirror['public_endpoints'] && !empty($mirror['url'])) $mirror['public_endpoints'] = [['url' => $mirror['url'], 'label_fa' => 'آدرس اصلی']];
     }
     unset($mirror);
     $monitorStatuses = monitorStatusMap($pdo, $mirrorIds);
