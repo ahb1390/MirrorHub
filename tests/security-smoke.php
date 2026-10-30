@@ -116,7 +116,7 @@ $assert(str_contains($migrationGuide, '003_mirror_endpoints.sql') && str_contain
 
 $assert(str_contains($backup, "'mirror_endpoints'"), 'Backup coverage missing mirror_endpoints table.');
 $assert(str_contains($backup, "3 => ['mirror_endpoints']"), 'Version 3 backups must be recognized as legacy without endpoints.');
-$assert(str_contains($backup, "fetchBackupRows($backup, 'mirror_endpoints')"), 'Restore must import independent mirror endpoints.');
+$assert(str_contains($backup, "fetchBackupRows(\$backup, 'mirror_endpoints')"), 'Restore must import independent mirror endpoints.');
 $assert(str_contains($backup, "Older archives predate mirror_endpoints"), 'Legacy merge restore must rebuild primary endpoints from mirror URLs.');
 
 if ($failures) {
