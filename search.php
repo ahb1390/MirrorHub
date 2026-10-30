@@ -16,6 +16,7 @@ $guideResults = [];
 $quickCategories = [];
 $monitorStatuses = [];
 $hasProtocolTable = hasTable($pdo, 'mirror_protocols');
+$hasEndpointTable = mhMirrorEndpointsAvailable($pdo);
 
 $filterStatusOptions = ['up', 'slow', 'down', 'unknown'];
 $filterHealthOptions = ['healthy', 'stale', 'invalid', 'error', 'unknown', 'not_configured'];
