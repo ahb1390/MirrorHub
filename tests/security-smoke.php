@@ -105,6 +105,15 @@ $assert(count($protocols) === 2, 'Protocol normalizer smoke test failed.');
 $escaped = cmsInline('<script>alert(1)</script>');
 $assert(str_contains($escaped, '&lt;script&gt;'), 'CMS inline renderer must escape raw HTML.');
 
+$endpointMigration = file_get_contents($root . '/migrations/003_mirror_endpoints.sql') ?: '';
+$migrationGuide = file_get_contents($root . '/docs/migrations.fa.md') ?: '';
+$assert(str_contains($endpointMigration, 'CREATE TABLE IF NOT EXISTS mirror_endpoints'), 'Mirror endpoint migration must create its table safely.');
+$assert(str_contains($endpointMigration, 'FOREIGN KEY (mirror_id) REFERENCES mirrors(id) ON DELETE CASCADE'), 'Mirror endpoints must be linked to their parent mirror.');
+$assert(str_contains($endpointMigration, 'INSERT INTO mirror_endpoints') && str_contains($endpointMigration, 'FROM mirrors AS m'), 'Existing mirror URLs must be copied into endpoints.');
+$assert(str_contains($endpointMigration, 'NOT EXISTS') && str_contains($endpointMigration, 'e.url = m.url'), 'Endpoint backfill must be idempotent.');
+$assert(!preg_match('/\\b(DROP TABLE|TRUNCATE TABLE|DELETE FROM\\s+mirrors)\\b/i', $endpointMigration), 'Endpoint migration must not destructively remove existing mirror data.');
+$assert(str_contains($migrationGuide, '003_mirror_endpoints.sql') && str_contains($migrationGuide, 'نسخهٔ پشتیبان'), 'Database migration guide must document backup and endpoint migration.');
+
 if ($failures) {
     fwrite(STDERR, "Smoke tests failed:\n - " . implode("\n - ", $failures) . "\n");
     exit(1);
