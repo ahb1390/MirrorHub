@@ -32,6 +32,8 @@ foreach ($recentMirrors as &$mirror) {
     $id = (int)$mirror['id'];
     $mirror['categories'] = $recentCategoryMap[$id] ?? [];
     $mirror['protocols'] = $recentProtocolMap[$id] ?? [];
+    $mirror['public_endpoints'] = $recentEndpointMap[$id] ?? [];
+    if (!$mirror['public_endpoints'] && !empty($mirror['url'])) $mirror['public_endpoints'] = [['url' => $mirror['url'], 'label_fa' => 'آدرس اصلی']];
 }
 unset($mirror);
 
