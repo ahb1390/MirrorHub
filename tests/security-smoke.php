@@ -44,10 +44,10 @@ $assert(str_contains($categoryAdmin, 'image/webp'), 'Category icon form must adv
 $assert(str_contains($ignore, '/config.local.php'), 'Local config must be git-ignored.');
 $assert(str_contains($htaccess, 'config\.local\.php'), 'Apache must deny direct access to the local config file.');
 
-foreach (['request_links', 'mirror_checks', 'mirror_status', 'mirror_daily_stats', 'mirror_incidents', 'monitor_settings', 'mirror_repository_health'] as $table) {
+foreach (['request_links', 'mirror_checks', 'mirror_status', 'mirror_daily_stats', 'mirror_incidents', 'monitor_settings', 'mirror_repository_health', 'mirror_endpoints'] as $table) {
     $assert(str_contains($backup, "'" . $table . "'"), 'Backup coverage missing table: ' . $table);
 }
-$assert(str_contains($backup, 'MIRRORHUB_BACKUP_VERSION = 3'), 'Backup format version was not incremented.');
+$assert(str_contains($backup, 'MIRRORHUB_BACKUP_VERSION = 4'), 'Backup format version was not incremented.');
 $assert(str_contains($backup, 'legacyMissingTables'), 'Legacy backup safety guard is missing.');
 $assert(str_contains($monitoring, 'mirror_repository_health'), 'Repository-health schema is missing.');
 $assert(str_contains($repoHealth, 'function monitorEvaluateRepositoryHealth'), 'Repository-health evaluator is missing.');
@@ -113,6 +113,11 @@ $assert(str_contains($endpointMigration, 'INSERT INTO mirror_endpoints') && str_
 $assert(str_contains($endpointMigration, 'NOT EXISTS') && str_contains($endpointMigration, 'e.url = m.url'), 'Endpoint backfill must be idempotent.');
 $assert(!preg_match('/\\b(DROP TABLE|TRUNCATE TABLE|DELETE FROM\\s+mirrors)\\b/i', $endpointMigration), 'Endpoint migration must not destructively remove existing mirror data.');
 $assert(str_contains($migrationGuide, '003_mirror_endpoints.sql') && str_contains($migrationGuide, 'نسخهٔ پشتیبان'), 'Database migration guide must document backup and endpoint migration.');
+
+$assert(str_contains($backup, "'mirror_endpoints'"), 'Backup coverage missing mirror_endpoints table.');
+$assert(str_contains($backup, "3 => ['mirror_endpoints']"), 'Version 3 backups must be recognized as legacy without endpoints.');
+$assert(str_contains($backup, "fetchBackupRows($backup, 'mirror_endpoints')"), 'Restore must import independent mirror endpoints.');
+$assert(str_contains($backup, "Older archives predate mirror_endpoints"), 'Legacy merge restore must rebuild primary endpoints from mirror URLs.');
 
 if ($failures) {
     fwrite(STDERR, "Smoke tests failed:\n - " . implode("\n - ", $failures) . "\n");
