@@ -28,6 +28,7 @@ MirrorHub یک برنامهٔ وب مبتنی بر PHP و MySQL/MariaDB برای
 - [سند OpenAPI نسخهٔ ۳.۱](docs/openapi-v1.json)
 - [راهنمای پایش و Cron](docs/monitoring.md)
 - [راهنمای امنیت و استقرار](docs/security-deployment.md)
+- [راهنمای مهاجرت دیتابیس](docs/migrations.fa.md)
 - [راهنمای مشارکت در توسعه](CONTRIBUTING.md)
 
 ## نیازمندی‌های فنی
