@@ -354,8 +354,9 @@ renderHeader('جست‌وجو');
                         </div>
                         <div class="mirror-actions">
                             <a href="<?= SITE_URL ?>/mirror.php?slug=<?= rawurlencode((string)$mirror['slug']) ?>" class="btn btn-sm btn-outline">جزئیات</a>
-                            <a href="<?= htmlspecialchars($mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن میرور</a>
-                            <?= pingButton($mirror['url']) ?>
+                            <?php $cardEndpoint = $mirror['public_endpoints'][0] ?? ['url' => $mirror['url']]; ?>
+                            <a href="<?= htmlspecialchars($cardEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن میرور</a>
+                            <?= pingButton($cardEndpoint['url']) ?>
                         </div>
                     </div>
                     <?php if ($mirror['description']): ?><p class="mirror-desc"><?= htmlspecialchars($mirror['description']) ?></p><?php endif; ?>
