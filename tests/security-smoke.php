@@ -118,6 +118,8 @@ $assert(str_contains($backup, "'mirror_endpoints'"), 'Backup coverage missing mi
 $assert(str_contains($backup, "3 => ['mirror_endpoints']"), 'Version 3 backups must be recognized as legacy without endpoints.');
 $assert(str_contains($backup, "fetchBackupRows(\$backup, 'mirror_endpoints')"), 'Restore must import independent mirror endpoints.');
 $assert(str_contains($backup, "Older archives predate mirror_endpoints"), 'Legacy merge restore must rebuild primary endpoints from mirror URLs.');
+$assert(str_contains($backup, "backupTableExists(\$pdo, 'mirror_endpoints') ? MIRRORHUB_BACKUP_VERSION : 3"), 'Backup export must retain the legacy format before endpoint migration.');
+$assert(str_contains($backup, "in_array('mirror_endpoints', \$availableTables, true)"), 'Legacy endpoint backfill must only run when the endpoint table exists.');
 
 if ($failures) {
     fwrite(STDERR, "Smoke tests failed:\n - " . implode("\n - ", $failures) . "\n");
