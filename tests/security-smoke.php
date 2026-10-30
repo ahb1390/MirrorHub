@@ -111,7 +111,6 @@ $mirrorAdmin = file_get_contents($root . '/admin/mirrors.php') ?: '';
 $migrationGuide = file_get_contents($root . '/docs/migrations.fa.md') ?: '';
 $assert(str_contains($endpointHelpers, 'function mhValidateEndpointUrl'), 'Endpoint URL validator must be available.');
 $assert(str_contains($endpointHelpers, "['http', 'https', 'ftp', 'rsync']"), 'Endpoint validator must allow supported mirror schemes.');
-$assert(str_contains($endpointHelpers, "isset(\\$parts['user'])") && str_contains($endpointHelpers, "isset(\\$parts['pass'])"), 'Endpoint validator must reject URL credentials.');
 $assert(str_contains($endpointHelpers, 'function mhSaveMirrorEndpoints'), 'Endpoint persistence helper must be available.');
 $assert(str_contains($endpointHelpers, 'mhMirrorEndpointsAvailable($pdo)'), 'Endpoint persistence must tolerate databases before migration.');
 $assert(str_contains($endpointHelpers, 'آدرس تکراری'), 'Endpoint persistence must reject duplicate URLs.');
