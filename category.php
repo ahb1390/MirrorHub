@@ -41,6 +41,7 @@ $GLOBALS['pageSeo'] = [
 $subCategories = getCategories($pdo, $category['id']);
 $mirrors = getMirrorsByCategory($pdo, $category['id']);
 $mirrorIds = array_column($mirrors, 'id');
+$endpointMap = mhGetMirrorEndpointsMap($pdo, $mirrorIds);
 $mirrorCategoryMap = getMirrorCategoryTagsMap($pdo, $mirrorIds);
 $mirrorProtocolMap = getMirrorProtocolsMap($pdo, $mirrorIds);
 foreach ($mirrors as &$mirror) {
