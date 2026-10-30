@@ -117,6 +117,13 @@ $assert(str_contains($endpointHelpers, 'آدرس تکراری'), 'Endpoint persi
 $assert(str_contains($mirrorAdmin, 'mhSaveMirrorEndpoints'), 'Admin mirror create/edit must persist endpoint records.');
 $assert(str_contains($mirrorAdmin, 'endpoint_urls[]') && str_contains($mirrorAdmin, 'endpoint_labels[]'), 'Admin mirror form must expose alternate endpoint inputs.');
 $assert(str_contains($mirrorAdmin, '$pdo->beginTransaction()') && str_contains($mirrorAdmin, '$pdo->commit()'), 'Mirror and endpoint changes must be saved transactionally.');
+$assert(str_contains($endpointHelpers, 'function mhGetMirrorEndpointsMap'), 'Public endpoint map helper is missing.');
+$assert(str_contains($endpointHelpers, 'function mhPublicMirrorEndpoints'), 'Legacy-compatible public endpoint fallback is missing.');
+$assert(str_contains($homePage, 'mhGetMirrorEndpointsMap'), 'Homepage mirror cards must load public endpoints.');
+$assert(str_contains($categoryPage, 'mhGetMirrorEndpointsMap'), 'Category mirror cards must load public endpoints.');
+$assert(str_contains($searchPage, 'mhGetMirrorEndpointsMap'), 'Search mirror cards must load public endpoints.');
+$assert(str_contains($searchPage, 'sme.url LIKE ?'), 'Search must match active alternate endpoint URLs.');
+$assert(str_contains($mirrorDetail, 'mirror-endpoint-list'), 'Mirror detail page must list alternate endpoints.');
 
 $assert(str_contains($endpointMigration, 'CREATE TABLE IF NOT EXISTS mirror_endpoints'), 'Mirror endpoint migration must create its table safely.');
 $assert(str_contains($endpointMigration, 'FOREIGN KEY (mirror_id) REFERENCES mirrors(id) ON DELETE CASCADE'), 'Mirror endpoints must be linked to their parent mirror.');
