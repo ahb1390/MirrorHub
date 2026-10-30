@@ -1,6 +1,7 @@
 <?php
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
+require_once 'includes/mirror-endpoints.php';
 require_once 'includes/layout.php';
 
 $slug = sanitize($_GET['slug'] ?? '');
@@ -40,12 +41,15 @@ $GLOBALS['pageSeo'] = [
 $subCategories = getCategories($pdo, $category['id']);
 $mirrors = getMirrorsByCategory($pdo, $category['id']);
 $mirrorIds = array_column($mirrors, 'id');
+$endpointMap = mhGetMirrorEndpointsMap($pdo, $mirrorIds);
 $mirrorCategoryMap = getMirrorCategoryTagsMap($pdo, $mirrorIds);
 $mirrorProtocolMap = getMirrorProtocolsMap($pdo, $mirrorIds);
 foreach ($mirrors as &$mirror) {
     $id = (int)$mirror['id'];
     $mirror['categories'] = $mirrorCategoryMap[$id] ?? [];
     $mirror['protocols'] = $mirrorProtocolMap[$id] ?? [];
+    $mirror['public_endpoints'] = $endpointMap[$id] ?? [];
+    if (!$mirror['public_endpoints'] && !empty($mirror['url'])) $mirror['public_endpoints'] = [['url' => $mirror['url'], 'label_fa' => 'آدرس اصلی']];
 }
 unset($mirror);
 
@@ -147,8 +151,9 @@ renderHeader($category['name']);
                         </div>
                         <div class="mirror-actions">
                             <a href="<?= SITE_URL ?>/mirror.php?slug=<?= rawurlencode((string)$mirror['slug']) ?>" class="btn btn-sm btn-outline">جزئیات</a>
-                            <a href="<?= htmlspecialchars($mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن</a>
-                            <?= pingButton($mirror['url']) ?>
+                            <?php $cardEndpoint = $mirror['public_endpoints'][0] ?? ['url' => $mirror['url']]; ?>
+                            <a href="<?= htmlspecialchars($cardEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن</a>
+                            <?= pingButton($cardEndpoint['url']) ?>
                         </div>
                     </div>
                     <?php if ($mirror['description']): ?>

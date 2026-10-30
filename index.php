@@ -1,6 +1,7 @@
 <?php
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
+require_once 'includes/mirror-endpoints.php';
 require_once 'includes/layout.php';
 
 // Get software categories
@@ -24,12 +25,15 @@ $providerCategories = $pdo->query(
 $stmt = $pdo->query("SELECT * FROM mirrors WHERE status = 'active' ORDER BY created_at DESC LIMIT 12");
 $recentMirrors = $stmt->fetchAll();
 $recentIds = array_column($recentMirrors, 'id');
+$recentEndpointMap = mhGetMirrorEndpointsMap($pdo, $recentIds);
 $recentCategoryMap = getMirrorCategoryTagsMap($pdo, $recentIds);
 $recentProtocolMap = getMirrorProtocolsMap($pdo, $recentIds);
 foreach ($recentMirrors as &$mirror) {
     $id = (int)$mirror['id'];
     $mirror['categories'] = $recentCategoryMap[$id] ?? [];
     $mirror['protocols'] = $recentProtocolMap[$id] ?? [];
+    $mirror['public_endpoints'] = $recentEndpointMap[$id] ?? [];
+    if (!$mirror['public_endpoints'] && !empty($mirror['url'])) $mirror['public_endpoints'] = [['url' => $mirror['url'], 'label_fa' => 'آدرس اصلی']];
 }
 unset($mirror);
 
@@ -144,8 +148,9 @@ renderHeader('خانه');
                     </div>
                     <div class="mirror-actions">
                         <a href="<?= SITE_URL ?>/mirror.php?slug=<?= rawurlencode((string)$mirror['slug']) ?>" class="btn btn-sm btn-outline">جزئیات</a>
-                        <a href="<?= htmlspecialchars($mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن</a>
-                        <?= pingButton($mirror['url']) ?>
+                        <?php $cardEndpoint = $mirror['public_endpoints'][0] ?? ['url' => $mirror['url']]; ?>
+                        <a href="<?= htmlspecialchars($cardEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن</a>
+                        <?= pingButton($cardEndpoint['url']) ?>
                     </div>
                 </div>
                 <?php if ($mirror['description']): ?>

@@ -44,10 +44,10 @@ $assert(str_contains($categoryAdmin, 'image/webp'), 'Category icon form must adv
 $assert(str_contains($ignore, '/config.local.php'), 'Local config must be git-ignored.');
 $assert(str_contains($htaccess, 'config\.local\.php'), 'Apache must deny direct access to the local config file.');
 
-foreach (['request_links', 'mirror_checks', 'mirror_status', 'mirror_daily_stats', 'mirror_incidents', 'monitor_settings', 'mirror_repository_health'] as $table) {
+foreach (['request_links', 'mirror_checks', 'mirror_status', 'mirror_daily_stats', 'mirror_incidents', 'monitor_settings', 'mirror_repository_health', 'mirror_endpoints'] as $table) {
     $assert(str_contains($backup, "'" . $table . "'"), 'Backup coverage missing table: ' . $table);
 }
-$assert(str_contains($backup, 'MIRRORHUB_BACKUP_VERSION = 3'), 'Backup format version was not incremented.');
+$assert(str_contains($backup, 'MIRRORHUB_BACKUP_VERSION = 4'), 'Backup format version was not incremented.');
 $assert(str_contains($backup, 'legacyMissingTables'), 'Legacy backup safety guard is missing.');
 $assert(str_contains($monitoring, 'mirror_repository_health'), 'Repository-health schema is missing.');
 $assert(str_contains($repoHealth, 'function monitorEvaluateRepositoryHealth'), 'Repository-health evaluator is missing.');
@@ -104,6 +104,42 @@ $assert(count($protocols) === 2, 'Protocol normalizer smoke test failed.');
 
 $escaped = cmsInline('<script>alert(1)</script>');
 $assert(str_contains($escaped, '&lt;script&gt;'), 'CMS inline renderer must escape raw HTML.');
+
+$endpointMigration = file_get_contents($root . '/migrations/003_mirror_endpoints.sql') ?: '';
+$endpointHelpers = file_get_contents($root . '/includes/mirror-endpoints.php') ?: '';
+$mirrorAdmin = file_get_contents($root . '/admin/mirrors.php') ?: '';
+$migrationGuide = file_get_contents($root . '/docs/migrations.fa.md') ?: '';
+$assert(str_contains($endpointHelpers, 'function mhValidateEndpointUrl'), 'Endpoint URL validator must be available.');
+$assert(str_contains($endpointHelpers, "['http', 'https', 'ftp', 'rsync']"), 'Endpoint validator must allow supported mirror schemes.');
+$assert(str_contains($endpointHelpers, 'function mhSaveMirrorEndpoints'), 'Endpoint persistence helper must be available.');
+$assert(str_contains($endpointHelpers, 'mhMirrorEndpointsAvailable($pdo)'), 'Endpoint persistence must tolerate databases before migration.');
+$assert(str_contains($endpointHelpers, 'آدرس تکراری'), 'Endpoint persistence must reject duplicate URLs.');
+$assert(str_contains($mirrorAdmin, 'mhSaveMirrorEndpoints'), 'Admin mirror create/edit must persist endpoint records.');
+$assert(str_contains($mirrorAdmin, 'endpoint_urls[]') && str_contains($mirrorAdmin, 'endpoint_labels[]'), 'Admin mirror form must expose alternate endpoint inputs.');
+$assert(str_contains($mirrorAdmin, '$pdo->beginTransaction()') && str_contains($mirrorAdmin, '$pdo->commit()'), 'Mirror and endpoint changes must be saved transactionally.');
+$assert(str_contains($endpointHelpers, 'function mhGetMirrorEndpointsMap'), 'Public endpoint map helper is missing.');
+$assert(str_contains($endpointHelpers, 'function mhPublicMirrorEndpoints'), 'Legacy-compatible public endpoint fallback is missing.');
+$assert(str_contains($homePage, 'mhGetMirrorEndpointsMap'), 'Homepage mirror cards must load public endpoints.');
+$assert(str_contains($categoryPage, 'mhGetMirrorEndpointsMap'), 'Category mirror cards must load public endpoints.');
+$assert(str_contains($searchPage, 'mhGetMirrorEndpointsMap'), 'Search mirror cards must load public endpoints.');
+$assert(str_contains($searchPage, 'sme.url LIKE ?'), 'Search must match active alternate endpoint URLs.');
+$assert(str_contains($mirrorDetail, 'mirror-endpoint-list'), 'Mirror detail page must list alternate endpoints.');
+$assert(str_contains($mirrorDetail, '$primaryEndpoint[\'url\']') && str_contains($mirrorDetail, 'pingButton((string)$primaryEndpoint[\'url\'])'), 'Mirror detail primary open and ping actions must use the selected primary endpoint.');
+$assert(str_contains($mirrorDetail, 'mirror-detail-url') && str_contains($mirrorDetail, '$primaryEndpoint[\'url\']'), 'Mirror detail must display the selected primary endpoint URL.');
+
+$assert(str_contains($endpointMigration, 'CREATE TABLE IF NOT EXISTS mirror_endpoints'), 'Mirror endpoint migration must create its table safely.');
+$assert(str_contains($endpointMigration, 'FOREIGN KEY (mirror_id) REFERENCES mirrors(id) ON DELETE CASCADE'), 'Mirror endpoints must be linked to their parent mirror.');
+$assert(str_contains($endpointMigration, 'INSERT INTO mirror_endpoints') && str_contains($endpointMigration, 'FROM mirrors AS m'), 'Existing mirror URLs must be copied into endpoints.');
+$assert(str_contains($endpointMigration, 'NOT EXISTS') && str_contains($endpointMigration, 'e.url = m.url'), 'Endpoint backfill must be idempotent.');
+$assert(!preg_match('/\\b(DROP TABLE|TRUNCATE TABLE|DELETE FROM\\s+mirrors)\\b/i', $endpointMigration), 'Endpoint migration must not destructively remove existing mirror data.');
+$assert(str_contains($migrationGuide, '003_mirror_endpoints.sql') && str_contains($migrationGuide, 'نسخهٔ پشتیبان'), 'Database migration guide must document backup and endpoint migration.');
+
+$assert(str_contains($backup, "'mirror_endpoints'"), 'Backup coverage missing mirror_endpoints table.');
+$assert(str_contains($backup, "3 => ['mirror_endpoints']"), 'Version 3 backups must be recognized as legacy without endpoints.');
+$assert(str_contains($backup, "fetchBackupRows(\$backup, 'mirror_endpoints')"), 'Restore must import independent mirror endpoints.');
+$assert(str_contains($backup, "Older archives predate mirror_endpoints"), 'Legacy merge restore must rebuild primary endpoints from mirror URLs.');
+$assert(str_contains($backup, "backupTableExists(\$pdo, 'mirror_endpoints') ? MIRRORHUB_BACKUP_VERSION : 3"), 'Backup export must retain the legacy format before endpoint migration.');
+$assert(str_contains($backup, "in_array('mirror_endpoints', \$availableTables, true)"), 'Legacy endpoint backfill must only run when the endpoint table exists.');
 
 if ($failures) {
     fwrite(STDERR, "Smoke tests failed:\n - " . implode("\n - ", $failures) . "\n");

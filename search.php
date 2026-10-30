@@ -1,6 +1,7 @@
 <?php
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
+require_once 'includes/mirror-endpoints.php';
 require_once 'includes/layout.php';
 
 $displayQuery = trim((string)($_GET['q'] ?? ''));
@@ -15,6 +16,7 @@ $guideResults = [];
 $quickCategories = [];
 $monitorStatuses = [];
 $hasProtocolTable = hasTable($pdo, 'mirror_protocols');
+$hasEndpointTable = mhMirrorEndpointsAvailable($pdo);
 
 $filterStatusOptions = ['up', 'slow', 'down', 'unknown'];
 $filterHealthOptions = ['healthy', 'stale', 'invalid', 'error', 'unknown', 'not_configured'];
@@ -68,15 +70,18 @@ if ($terms) {
     $mirrorParams = [];
     foreach ($terms as $term) {
         $like = '%' . $term . '%';
-        $match = '(m.name_fa LIKE ? OR m.name_en LIKE ? OR m.description LIKE ? OR m.url LIKE ? OR m.protocol LIKE ?
-            OR EXISTS (
+        $match = '(m.name_fa LIKE ? OR m.name_en LIKE ? OR m.description LIKE ? OR m.url LIKE ? OR m.protocol LIKE ?'
+            . ($hasEndpointTable ? ' OR EXISTS (SELECT 1 FROM mirror_endpoints sme WHERE sme.mirror_id = m.id AND sme.is_active = 1 AND sme.url LIKE ?)' : '')
+            . ' OR EXISTS (
                 SELECT 1 FROM mirror_categories smc
                 INNER JOIN categories sc ON sc.id = smc.category_id
                 LEFT JOIN categories sp ON sp.id = sc.parent_id
                 WHERE smc.mirror_id = m.id
                   AND (sc.name LIKE ? OR sc.slug LIKE ? OR sc.description LIKE ? OR sp.name LIKE ?)
             )';
-        array_push($mirrorParams, $like, $like, $like, $like, $like, $like, $like, $like, $like);
+        array_push($mirrorParams, $like, $like, $like, $like, $like);
+        if ($hasEndpointTable) $mirrorParams[] = $like;
+        array_push($mirrorParams, $like, $like, $like, $like);
 
         if ($hasProtocolTable) {
             $match .= " OR EXISTS (
@@ -155,10 +160,13 @@ if ($terms) {
     $mirrorIds = array_column($mirrorResults, 'id');
     $categoryMap = getMirrorCategoryTagsMap($pdo, $mirrorIds);
     $protocolMap = getMirrorProtocolsMap($pdo, $mirrorIds);
+    $endpointMap = mhGetMirrorEndpointsMap($pdo, $mirrorIds);
     foreach ($mirrorResults as &$mirror) {
         $id = (int)$mirror['id'];
         $mirror['categories'] = $categoryMap[$id] ?? [];
         $mirror['protocols'] = $protocolMap[$id] ?? [];
+        $mirror['public_endpoints'] = $endpointMap[$id] ?? [];
+        if (!$mirror['public_endpoints'] && !empty($mirror['url'])) $mirror['public_endpoints'] = [['url' => $mirror['url'], 'label_fa' => 'آدرس اصلی']];
     }
     unset($mirror);
     $monitorStatuses = monitorStatusMap($pdo, $mirrorIds);
@@ -179,10 +187,13 @@ if ($terms) {
         $mirrorIds = array_column($mirrorResults, 'id');
         $categoryMap = getMirrorCategoryTagsMap($pdo, $mirrorIds);
         $protocolMap = getMirrorProtocolsMap($pdo, $mirrorIds);
+        $endpointMap = mhGetMirrorEndpointsMap($pdo, $mirrorIds);
         foreach ($mirrorResults as &$mirror) {
             $id = (int)$mirror['id'];
             $mirror['categories'] = $categoryMap[$id] ?? [];
             $mirror['protocols'] = $protocolMap[$id] ?? [];
+            $mirror['public_endpoints'] = $endpointMap[$id] ?? [];
+            if (!$mirror['public_endpoints'] && !empty($mirror['url'])) $mirror['public_endpoints'] = [['url' => $mirror['url'], 'label_fa' => 'آدرس اصلی']];
         }
         unset($mirror);
         $monitorStatuses = monitorStatusMap($pdo, $mirrorIds);
@@ -343,8 +354,9 @@ renderHeader('جست‌وجو');
                         </div>
                         <div class="mirror-actions">
                             <a href="<?= SITE_URL ?>/mirror.php?slug=<?= rawurlencode((string)$mirror['slug']) ?>" class="btn btn-sm btn-outline">جزئیات</a>
-                            <a href="<?= htmlspecialchars($mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن میرور</a>
-                            <?= pingButton($mirror['url']) ?>
+                            <?php $cardEndpoint = $mirror['public_endpoints'][0] ?? ['url' => $mirror['url']]; ?>
+                            <a href="<?= htmlspecialchars($cardEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">بازکردن میرور</a>
+                            <?= pingButton($cardEndpoint['url']) ?>
                         </div>
                     </div>
                     <?php if ($mirror['description']): ?><p class="mirror-desc"><?= htmlspecialchars($mirror['description']) ?></p><?php endif; ?>

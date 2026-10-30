@@ -1,6 +1,7 @@
 <?php
 require_once 'includes/db.php';
 require_once 'includes/functions.php';
+require_once 'includes/mirror-endpoints.php';
 require_once 'includes/monitoring.php';
 require_once 'includes/layout.php';
 
@@ -24,6 +25,8 @@ if (!$mirror) {
 }
 
 $mirrorId = (int)$mirror['id'];
+$publicEndpoints = mhPublicMirrorEndpoints($pdo, $mirror);
+$primaryEndpoint = $publicEndpoints[0] ?? ['url' => (string)$mirror['url'], 'label_fa' => 'آدرس اصلی'];
 $names = mirrorDisplayName($mirror);
 $categoryMap = getMirrorCategoryTagsMap($pdo, [$mirrorId]);
 $categories = $categoryMap[$mirrorId] ?? [];
@@ -50,10 +53,10 @@ $healthConfigured = !empty($health['profile']) && $health['profile'] !== 'http_o
 $status = (string)($monitorStatus['status'] ?? 'unknown');
 $statusClasses = ['up' => 'badge-success', 'slow' => 'badge-warning', 'down' => 'badge-danger', 'unknown' => 'badge-default'];
 $statusLabel = monitorStatusFa($status);
-$baseUrl = rtrim((string)$mirror['url'], '/');
-$urlIsHttp = filter_var((string)$mirror['url'], FILTER_VALIDATE_URL) !== false
-    && in_array(strtolower((string)parse_url((string)$mirror['url'], PHP_URL_SCHEME)), ['http', 'https'], true);
-if (!$urlIsHttp) $baseUrl = (string)$mirror['url'];
+$baseUrl = rtrim((string)$primaryEndpoint['url'], '/');
+$urlIsHttp = filter_var((string)$primaryEndpoint['url'], FILTER_VALIDATE_URL) !== false
+    && in_array(strtolower((string)parse_url((string)$primaryEndpoint['url'], PHP_URL_SCHEME)), ['http', 'https'], true);
+if (!$urlIsHttp) $baseUrl = (string)$primaryEndpoint['url'];
 
 $repoTemplates = [
     'debian' => "# Debian — /etc/apt/sources.list.d/mirrorhub.sources\n# Replace <CODENAME> and verify the selected Debian suite.\nTypes: deb\nURIs: " . $baseUrl . "\nSuites: <CODENAME>\nComponents: main\n",
@@ -90,11 +93,20 @@ renderHeader($names['fa']);
         <div class="mirror-titles"><h1 class="section-title"><?= htmlspecialchars($names['fa'], ENT_QUOTES, 'UTF-8') ?></h1>
             <?php if ($names['en'] && $names['en'] !== $names['fa']): ?><p class="mirror-name-en" dir="ltr"><?= htmlspecialchars($names['en'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
         </div>
-        <div class="mirror-actions"><a class="btn btn-primary" href="<?= htmlspecialchars((string)$mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer">بازکردن میرور</a><?= pingButton((string)$mirror['url']) ?></div>
+        <div class="mirror-actions"><a class="btn btn-primary" href="<?= htmlspecialchars((string)$primaryEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer">بازکردن میرور</a><?= pingButton((string)$primaryEndpoint['url']) ?></div>
     </div>
     <?php if (!empty($mirror['description'])): ?><p class="category-desc"><?= nl2br(htmlspecialchars((string)$mirror['description'], ENT_QUOTES, 'UTF-8')) ?></p><?php endif; ?>
-    <a class="mirror-detail-url" href="<?= htmlspecialchars((string)$mirror['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars((string)$mirror['url'], ENT_QUOTES, 'UTF-8') ?></a>
-    <div class="mirror-meta"><?= protocolBadges($protocols) ?>
+    <a class="mirror-detail-url" href="<?= htmlspecialchars((string)$primaryEndpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars((string)$primaryEndpoint['url'], ENT_QUOTES, 'UTF-8') ?></a>
+
+    <?php if (count($publicEndpoints) > 1): ?>
+        <div class="mirror-endpoint-list" aria-label="آدرس‌های دیگر میرور">
+            <h2 class="endpoint-list-title">آدرس‌های دیگر</h2>
+            <ul><?php foreach (array_slice($publicEndpoints, 1) as $endpoint): ?>
+                <li><span><?= htmlspecialchars((string)($endpoint['label_fa'] ?: 'آدرس جایگزین'), ENT_QUOTES, 'UTF-8') ?></span>
+                    <a href="<?= htmlspecialchars((string)$endpoint['url'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer" dir="ltr"><?= htmlspecialchars((string)$endpoint['url'], ENT_QUOTES, 'UTF-8') ?></a></li>
+            <?php endforeach; ?></ul>
+        </div>
+    <?php endif; ?>    <div class="mirror-meta"><?= protocolBadges($protocols) ?>
         <?php foreach ($categories as $cat): ?><a class="badge badge-primary" href="<?= SITE_URL ?>/category.php?slug=<?= rawurlencode((string)$cat['slug']) ?>"><?= htmlspecialchars((string)$cat['name'], ENT_QUOTES, 'UTF-8') ?><?= ($cat['type'] ?? '') === 'provider' ? ' · ارائه‌دهنده' : '' ?></a><?php endforeach; ?>
     </div>
 </section>

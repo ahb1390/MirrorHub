@@ -4419,3 +4419,19 @@ table { max-width: 100%; }
     .mirror-history-table th, .mirror-history-table td { padding: .6rem .45rem; }
     .repo-config-controls { align-items: stretch; }
 }
+
+
+/* Mirror endpoint editor */
+.mirror-endpoints-editor textarea { width: 100%; min-height: 6rem; resize: vertical; direction: ltr; text-align: left; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.mirror-endpoints-editor .form-hint { display: block; margin: .35rem 0 .65rem; line-height: 1.8; }
+.mirror-endpoints-editor code { direction: ltr; unicode-bidi: isolate; }
+
+
+/* Public mirror endpoint alternatives */
+.mirror-endpoint-list{margin-top:1rem;padding:1rem;border:1px solid var(--border-color, #e5e7eb);border-radius:var(--radius-md, 12px);background:var(--surface-muted, rgba(127,127,127,.04))}
+.endpoint-list-title{font-size:.95rem;margin:0 0 .65rem}
+.mirror-endpoint-list ul{list-style:none;margin:0;padding:0;display:grid;gap:.65rem}
+.mirror-endpoint-list li{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.mirror-endpoint-list li span{font-size:.875rem;color:var(--text-muted, #6b7280)}
+.mirror-endpoint-list li a{max-width:100%;overflow-wrap:anywhere;text-align:left;font-size:.875rem}
+@media(max-width:600px){.mirror-endpoint-list li{align-items:flex-start;flex-direction:column;gap:.25rem}.mirror-endpoint-list li a{width:100%}}
